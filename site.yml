@@ -1,0 +1,20 @@
+---
+# This playbook deploys the docker and registry, 
+# builds opencontrail and copies containers to
+# the registry 
+#
+# Apply common configuration to all hosts
+- hosts: all
+  remote_user: root
+  roles:
+     - { role: common-debian, when: ansible_os_family == 'Debian' }
+     - { role: common-redhat, when: ansible_os_family == 'RedHat' }
+
+# Configure the registry node. This will involve setting up apache docker, 
+# making the repo server, building the docker images and copying them to 
+# the docker registry.
+- hosts: opencontrail-registry
+  remote_user: root
+  roles:
+     - { role: opencontrail-registry }
+

@@ -1,0 +1,5 @@
+---
+# Handlers for opencontrail-registry
+#
+- name: restart apache
+  shell: docker restart {{ apache_docker_uuid.stdout }}

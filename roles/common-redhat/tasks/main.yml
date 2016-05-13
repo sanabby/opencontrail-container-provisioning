@@ -1,0 +1,55 @@
+---
+# This role contains common plays that will run on all nodes.
+#
+- name: yum update cache
+  yum: name=* update_cache=yes state=latest
+
+- name: Create the repository for docker
+  copy: src=docker.repo.list dest=/etc/yum.repos.d/docker.repo
+
+- name: Install ntp
+  yum: name=ntp state=installed
+  tags: ntp
+
+- name: Install docker
+  yum: name=docker-engine state=installed
+
+- name: Install net-tools
+  yum: name=net-tools state=installed
+
+- name: Install iptables services
+  yum: name=iptables-services state=installed
+
+- name: Configure ntp file
+  template: src=ntp.conf.j2 dest=/etc/ntp.conf
+  notify:
+     - restart ntpd
+  tags: ntp
+
+- name: Start the ntp service
+  service: name=ntpd state=started enabled=yes
+  tags: ntp
+
+- name: Start the docker service
+  service: name=docker state=started enabled=yes
+  tags: docker
+
+- name: Delete the REJECT rules from INPUT chain
+  iptables: chain=INPUT jump=REJECT state=absent
+  become: yes
+  notify: 
+     - save iptables
+     - restart iptables
+  tags: iptables 
+
+- name: Delete the REJECT rules from FORWARD chain
+  iptables: chain=FORWARD jump=REJECT state=absent
+  become: yes
+  notify:
+      - save iptables
+      - restart iptables
+  tags: iptables
+
+- name: Install python-pip
+  yum: name=python-pip state=installed
+  tags: python-pip

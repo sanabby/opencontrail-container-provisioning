@@ -1,0 +1,71 @@
+---
+# This role installs httpd and registry, build opencontrail docker images and pushes
+# the images to the registry
+#
+- name: install docker-py with pip
+  become: true
+  pip: name={{ item }} state=present
+  with_items:
+    - six==1.10.0
+    - docker-py==1.2.3
+
+- name: httpd container
+  docker:
+    name: opencontrail-repo
+    image: httpd
+    net: host
+    state: started
+    volumes:
+    - /mnt:/mnt
+
+- name: Create the contrail mount
+  file: path={{ contrail_mount_dir }} state=directory mode=0755
+
+- name: Download contrail packages
+  get_url: dest={{ contrail_mount_dir }}  url={{ contrail_rel_pkgs }}
+  when: contrail_rel_pkgs is defined
+
+- name: Get downloaded file
+  shell: ls *.tgz chdir={{ contrail_mount_dir }}
+  register: contrail_pkg_tgz
+
+- name: Create opencontrail repo directory packages
+  file: path={{ contrail_mount_dir }}/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }} state=directory mode=0755
+
+- name: Extract contrail packages
+  unarchive: src={{ contrail_mount_dir }}/{{ contrail_pkg_tgz.stdout }} dest={{ contrail_mount_dir }}/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}
+
+- name: Delete the downloaded file
+  file: path={{ contrail_mount_dir }}/{{ contrail_pkg_tgz.stdout }} state=absent
+
+- name: Get docker uuid for apache
+  shell: docker ps | grep httpd | awk '{print $1}'
+  register: apache_docker_uuid
+
+- name: Get apache conf
+  shell: docker cp {{ apache_docker_uuid.stdout }}:/usr/local/apache2/conf/httpd.conf /tmp
+
+- name: Update link for contrail repo in apache
+  shell: docker exec -it {{ apache_docker_uuid.stdout }} bash -c "ln -sf {{ contrail_mount_dir }}/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }} /usr/local/apache2/htdocs/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}"
+
+- name: update apache config by inserting the alias for contrail repo
+  blockinfile:
+    dest: /tmp/httpd.conf
+    insertafter: EOF
+    content: |
+      Alias /contrail-pkgs /usr/local/apache2/htdocs/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}
+      <Directory /usr/local/apache2/htdocs/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}>
+          Options Indexes FollowSymLinks
+          AllowOverride None
+          Order allow,deny
+          Allow from all
+      </Directory>
+    state: present
+
+- name: copy apache config to container
+  shell: docker cp /tmp/httpd.conf {{ apache_docker_uuid.stdout }}:/usr/local/apache2/conf/httpd.conf
+  notify: restart apache
+  tags: apache
+
+- name: clean up local apache conf
+  file: path=/tmp/httpd.conf state=absent
