@@ -3,3 +3,9 @@
 #
 - name: restart apache
   shell: docker restart {{ apache_docker_uuid.stdout }}
+
+- name: save iptables
+  command: iptables-save
+
+- name: restart iptables
+  service: name=iptables state=restarted

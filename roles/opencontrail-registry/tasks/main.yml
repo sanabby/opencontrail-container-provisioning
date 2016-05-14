@@ -36,7 +36,7 @@
     net: host
     state: started
     volumes:
-    - "{{ contrail_repo_dir }}:/mnt"
+    - "{{ contrail_repo_dir }}:/usr/local/apache2/htdocs"
 
 - name: Get docker uuid for apache
   shell: docker ps | grep httpd | awk '{print $1}'
@@ -45,8 +45,8 @@
 - name: Get apache conf
   shell: docker cp {{ apache_docker_uuid.stdout }}:/usr/local/apache2/conf/httpd.conf /tmp
 
-- name: Update link for contrail repo in apache
-  shell: docker exec -it {{ apache_docker_uuid.stdout }} bash -c "ln -sf {{ contrail_repo_dir }}/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }} /usr/local/apache2/htdocs/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}"
+#- name: Update link for contrail repo in apache
+#  command: docker exec -it {{ apache_docker_uuid.stdout }} bash -c "cd /usr/local/apache2/htdocs/; ln -sf {{ contrail_repo_dir }}/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }} /usr/local/apache2/htdocs/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}"
 
 - name: update apache config by inserting the alias for contrail repo
   blockinfile:
@@ -70,6 +70,25 @@
 - name: clean up local apache conf
   file: path=/tmp/httpd.conf state=absent
 
+- name: Start ubuntu registry Packager
+  command: "{{ item }}"
+  with_items:
+  - docker pull ubuntu:14.04
+  - docker run -d -P --name opencontrail-registry-packagesz -v {{ contrail_repo_dir }}:/mnt -t -i ubuntu:14.04
+
+- name: Get docker uuid of ubuntu registry packager
+  shell: docker ps | grep opencontrail-registry-packagesz | awk '{print $1}'
+  register: opencontrail_pkgz_docker_uuid
+
+- name: create Packages.gz for the repo
+  shell: docker exec -it {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "cd /mnt/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}; dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz"
+
+- name: delete opencontrail-registry-packagesz
+  command: "{{ item }}"
+  with_items:
+  - docker stop {{ opencontrail_pkgz_docker_uuid.stdout }}
+  - docker rm {{ opencontrail_pkgz_docker_uuid.stdout }}
+
 - name: docker registry
   docker:
     name: opencontrail-registry
@@ -78,3 +97,26 @@
     state: started
     volumes:
     - "{{ contrail_repo_dir }}:/var/lib/registry"
+
+- name: iptables Accept chain
+  command: "{{ item }}"
+  with_items:
+  - iptables -P INPUT ACCEPT
+  - iptables -P FORWARD ACCEPT
+  - iptables -P OUTPUT ACCEPT 
+  notify:
+     - save iptables
+     - restart iptables
+  tags: iptables
+
+- name: iptables flush
+  command: "{{ item }}"
+  with_items:
+  - iptables -t nat -F
+  - iptables -t mangle -F
+  - iptables -F
+  - iptables -X
+  notify:
+      - save iptables
+      - restart iptables
+  tags: iptables

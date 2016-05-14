@@ -3,9 +3,3 @@
 #
 - name: restart ntpd
   service: name=ntpd state=restarted
-
-- name: save iptables
-  command: iptables-save
-
-- name: restart iptables
-  service: name=iptables state=restarted
