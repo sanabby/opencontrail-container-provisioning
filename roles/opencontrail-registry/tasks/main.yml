@@ -3,7 +3,6 @@
 # the images to the registry
 #
 - name: install docker-py with pip
-  become: true
   pip: name={{ item }} state=present
   with_items:
     - six==1.10.0
@@ -77,6 +76,9 @@
   shell: docker ps | grep opencontrail-registry-packagesz | awk '{print $1}'
   register: opencontrail_pkgz_docker_uuid
 
+- name: Update and install dpkg-dev
+  shell: docker exec -it {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "apt-get update; apt-get install -y dpkg-dev"
+
 - name: create Packages.gz for the repo
   shell: docker exec -it {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "cd /mnt/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}; dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz"
 
@@ -95,25 +97,26 @@
     volumes:
     - "{{ contrail_repo_dir }}:/var/lib/registry"
 
-- name: iptables Accept chain
-  command: "{{ item }}"
-  with_items:
-  - iptables -P INPUT ACCEPT
-  - iptables -P FORWARD ACCEPT
-  - iptables -P OUTPUT ACCEPT 
+- name: check for the REJECT rule in INPUT chain
+  shell: iptables -L INPUT -n --line-numbers | grep REJECT | awk '{print $1}'
+  register: reject_input_chain
+
+- name: check for the REJECT rule in INPUT chain
+  shell: iptables -L FORWARD -n --line-numbers | grep REJECT | awk '{print $1}'
+  register: reject_forward_chain
+
+- name: delete REJECT rule from INPUT chain
+  shell: iptables -D INPUT {{ reject_input_chain.stdout }}
+  when: reject_input_chain.stdout != ""
   notify:
      - save iptables
      - restart iptables
   tags: iptables
 
-- name: iptables flush
-  command: "{{ item }}"
-  with_items:
-  - iptables -t nat -F
-  - iptables -t mangle -F
-  - iptables -F
-  - iptables -X
+- name: delete REJECT rule from FORWARD chain
+  shell: iptables -D INPUT {{ reject_forward_chain.stdout }}
+  when: reject_forward_chain.stdout != ""
   notify:
-      - save iptables
-      - restart iptables
+     - save iptables
+     - restart iptables
   tags: iptables

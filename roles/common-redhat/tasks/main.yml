@@ -37,3 +37,7 @@
 - name: Install python-pip
   yum: name=python-pip state=installed
   tags: python-pip
+
+- name: Install bridge-utils
+  yum: name=bridge-utils state=installed
+  tags: bridge-utils
