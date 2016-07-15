@@ -1,0 +1,4 @@
+---
+# This task is for building opencontrail-anycast-vip
+#
+- include_vars: anycast-vip-build.yml

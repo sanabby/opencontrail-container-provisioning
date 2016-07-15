@@ -1,0 +1,7 @@
+---
+# This role configures opencontrail-database
+#
+- name: set the seed 
+  set_fact:
+     database_seed: "{{ hostvars[item]['ansible_' + oc_iface]['ipv4']['address'] }}"
+  with_items: groups['opencontrail-database']

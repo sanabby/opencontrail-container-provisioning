@@ -1,0 +1,11 @@
+[DEFAULT]
+hostip={{ hostvars[inventory_hostname]['database_seed'] }}
+#contrail_databases=config analytics
+minimum_diskGB=4
+
+[DISCOVERY]
+server={{ hostvars[inventory_hostname]['database_seed'] }}
+port=5998
+
+[COLLECTOR]
+#server_list=ip1:port1 ip2:port2

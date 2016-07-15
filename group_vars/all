@@ -3,3 +3,6 @@
 
 # NTP server to sync time
 ntpserver: 66.129.255.62
+
+# opencontrail control-data interface
+oc_iface: enp1s0f1

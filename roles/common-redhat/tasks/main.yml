@@ -5,7 +5,7 @@
   yum: name=* update_cache=yes state=latest
 
 - name: Create the repository for docker
-  copy: src=docker.repo.list dest=/etc/yum.repos.d/docker.repo
+  copy: src=docker.repo.list dest=/etc/yum.repos.d/docker.repo force=yes
 
 - name: Install ntp
   yum: name=ntp state=installed

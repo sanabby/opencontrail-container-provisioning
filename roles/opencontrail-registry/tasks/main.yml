@@ -77,10 +77,10 @@
   register: opencontrail_pkgz_docker_uuid
 
 - name: Update and install dpkg-dev
-  shell: docker exec -it {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "apt-get update; apt-get install -y dpkg-dev"
+  shell: docker exec -i {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "apt-get update; apt-get install -y dpkg-dev"
 
 - name: create Packages.gz for the repo
-  shell: docker exec -it {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "cd /mnt/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}; dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz"
+  shell: docker exec -i {{ opencontrail_pkgz_docker_uuid.stdout }} bash -c "cd /mnt/{{ contrail_pkg_tgz.stdout.split('.tgz')[0] }}; dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz"
 
 - name: delete opencontrail-registry-packagesz
   command: "{{ item }}"
@@ -120,3 +120,7 @@
      - save iptables
      - restart iptables
   tags: iptables
+
+#- name: Build, upload opencontrail dockers to registry
+  #include: opencontrail-docker.yml
+  #tags: opencontrail-docker
